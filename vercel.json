@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "server.js"
+    }
+  ],
+  "ignore": [
+    ".venv",
+    "chrome-user-data",
+    "node_modules",
+    "extension/lib/paddle/rec_model.zip",
+    "extension/lib/chi_sim.traineddata.gz"
+  ]
+}

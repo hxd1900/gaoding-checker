@@ -33,7 +33,7 @@ RUN npm install
 COPY . .
 
 # 暴露端口
-EXPOSE 3000
+EXPOSE 7860
 
 # 创建启动脚本，用于启动 Xvfb 和 Node 应用
 RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1024x768x16 &\nnode server.js' > /start.sh && chmod +x /start.sh
