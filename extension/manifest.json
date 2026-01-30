@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "稿定模板编辑器图层检查",
+  "version": "1.36",
+  "description": "自动识别稿定设计编辑器画布内的元素图层数量并进行合规性检查",
+  "permissions": [
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.gaoding.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js", "tesseract.min.js"],
+      "matches": ["*://*.gaoding.com/*"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.gaoding.com/editor/design*", 
+        "*://*.gaoding.com/design/*",
+        "*://sadmin.gaoding.com/editor/*",
+        "*://sadmin.gaoding.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["style.css"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

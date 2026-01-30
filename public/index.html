@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>稿定设计图层批量检测器</title>
+    <!-- 使用本地 CSS -->
+    <link href="style.css" rel="stylesheet">
+    <style>
+        /* 针对截图风格的特定覆盖样式 */
+        body { background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .container { max-width: 1000px; margin-top: 50px; }
+        
+        h2 { text-align: center; margin-bottom: 30px; font-weight: 600; font-size: 1.5rem; }
+        
+        .card { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 8px; margin-bottom: 25px; padding: 20px; }
+        .card-body { padding: 0; }
+        
+        .form-label { font-weight: 600; margin-bottom: 10px; display: block; }
+        .form-control { border-radius: 4px; border: 1px solid #ced4da; padding: 12px; font-size: 14px; }
+        .form-text { color: #6c757d; font-size: 12px; margin-top: 8px; margin-bottom: 15px; }
+        
+        .btn { padding: 8px 16px; font-size: 14px; border-radius: 4px; border: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-primary { background-color: #0d6efd; color: white; }
+        .btn-success { background-color: #198754; color: white; }
+        .btn-warning { background-color: #ffc107; color: #000; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        
+        /* 表格样式复刻 */
+        #resultArea h4 { font-size: 16px; font-weight: 600; margin-bottom: 15px; }
+        .table { width: 100%; border-collapse: collapse; background: white; }
+        .table th { background-color: #f8f9fa; border-bottom: 2px solid #dee2e6; color: #495057; font-weight: 600; text-align: left; padding: 12px; font-size: 13px; }
+        .table td { padding: 12px; border-bottom: 1px solid #dee2e6; font-size: 13px; color: #212529; vertical-align: middle; }
+        .table tr:last-child td { border-bottom: none; }
+        
+        /* 状态样式 */
+        .status-pass { color: #198754; font-weight: bold; }
+        .status-reject { color: #dc3545; font-weight: bold; }
+        .status-failed { color: #dc3545; }
+        .text-success { color: #198754; }
+        .text-danger { color: #dc3545; }
+        
+        /* 链接颜色 */
+        a { color: #0d6efd; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        /* 进度遮罩 */
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); z-index: 9999;
+            display: none; justify-content: center; align-items: center;
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎨 稿定设计图层批量检测器</h2>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">请输入模板 ID (每行一个)</label>
+                    <textarea id="inputIds" class="form-control" rows="5" placeholder="195690666
+195667399
+195662758
+195667140"></textarea>
+                    <div class="form-text">支持批量输入，系统将自动逐个检测。</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" onclick="startCheck()" id="btnStart">🚀 开始检测</button>
+                    <button class="btn btn-warning" onclick="pauseCheck()" id="btnPause" disabled>⏸ 停止检测</button>
+                    <button class="btn btn-success" onclick="resumeCheck()" id="btnResume" style="display:none;">▶ 继续检测</button>
+                    <button class="btn btn-success" onclick="exportCsv()" id="btnExport" disabled>📥 导出 Excel (CSV)</button>
+                </div>
+                <div class="mt-2 text-muted small" style="font-size: 12px; margin-top: 10px;">
+                    <span id="statusText"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="resultArea" style="display: none;">
+            <h4>检测结果</h4>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">模板ID</th>
+                            <th style="width: 10%;">检测状态</th>
+                            <th style="width: 10%;">审核结果</th>
+                            <th style="width: 35%;">审核详情</th>
+                            <th style="width: 10%;">图层总数</th>
+                            <th style="width: 10%;">失败原因</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 进度遮罩 (改为非模态，允许点击停止) -->
+    <div class="loading-overlay" id="loading" style="background: rgba(255,255,255,0.9);">
+        <div class="spinner-border text-primary" role="status"></div>
+        <h5 class="mt-3" id="loadingText">正在初始化...</h5>
+        <button class="btn btn-danger mt-3" onclick="pauseCheck()">停止检测</button>
+    </div>
+
+    <script>
+        let currentResults = [];
+        let pendingIds = [];
+        let isPaused = false;
+        let isRunning = false;
+
+        async function startCheck() {
+            const input = document.getElementById('inputIds').value;
+            const ids = input.split(/[\n,，]/).map(s => s.trim()).filter(s => s);
+            
+            if (ids.length === 0) {
+                alert('请输入有效的 ID');
+                return;
+            }
+
+            // 重置状态
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('resultTableBody').innerHTML = '';
+            document.getElementById('btnExport').disabled = true;
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnPause').disabled = false;
+            document.getElementById('btnResume').style.display = 'none';
+            
+            currentResults = [];
+            pendingIds = [...ids];
+            isPaused = false;
+            
+            await processQueue();
+        }
+
+        async function pauseCheck() {
+            isPaused = true;
+            document.getElementById('statusText').innerText = '正在停止... (完成当前项后停止)';
+            document.getElementById('btnPause').disabled = true;
+            // 如果遮罩层还在显示，手动隐藏它
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        async function resumeCheck() {
+            isPaused = false;
+            document.getElementById('btnResume').style.display = 'none';
+            document.getElementById('btnPause').disabled = false;
+            await processQueue();
+        }
+
+        async function processQueue() {
+            if (isRunning) return;
+            isRunning = true;
+
+            const total = currentResults.length + pendingIds.length;
+            const statusEl = document.getElementById('statusText');
+
+            while (pendingIds.length > 0) {
+                if (isPaused) {
+                    statusEl.innerHTML = `<span class="text-warning">⏸ 已暂停</span> - 剩余 ${pendingIds.length} 个待检测`;
+                    document.getElementById('btnResume').style.display = 'inline-block';
+                    document.getElementById('btnExport').disabled = false; // 暂停时也允许导出
+                    isRunning = false;
+                    return;
+                }
+
+                const id = pendingIds.shift();
+                const currentIndex = currentResults.length + 1;
+                
+                statusEl.innerText = `正在检测: ${id} (${currentIndex}/${total})...`;
+                
+                // 渲染一行占位
+                const tr = renderRowPlaceholder(id);
+
+                try {
+                    const response = await fetch('/api/check', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: [id] }) 
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.results && data.results.length > 0) {
+                        const result = data.results[0];
+                        currentResults.push(result);
+                        updateRow(tr, result);
+                    }
+                } catch (e) {
+                    console.error(`ID ${id} 检测失败`, e);
+                    const errorResult = {
+                        id: id,
+                        process_status: 'failed',
+                        audit_result: null,
+                        error: '网络请求错误'
+                    };
+                    currentResults.push(errorResult);
+                    updateRow(tr, errorResult);
+                }
+            }
+
+            statusEl.innerText = '✅ 检测完成';
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            document.getElementById('btnExport').disabled = false;
+            isRunning = false;
+        }
+
+        function renderRowPlaceholder(id) {
+            const tbody = document.getElementById('resultTableBody');
+            const tr = document.createElement('tr');
+            tr.id = `row-${id}`;
+            tr.innerHTML = `
+                <td><a href="https://www.gaoding.com/editor/design?id=${id}" target="_blank">${id}</a></td>
+                <td><div class="spinner-border spinner-border-sm text-primary" role="status"></div> 检测中...</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+            `;
+            tbody.appendChild(tr);
+            tr.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            return tr;
+        }
+
+        function updateRow(tr, item) {
+            // 2. 检测状态
+            let processStatusHtml = '';
+            if (item.process_status === 'detected') {
+                processStatusHtml = '<span>成功</span>';
+            } else {
+                processStatusHtml = `<span class="text-danger">失败</span>`;
+            }
+
+            // 3. 审核结果
+            let auditHtml = '';
+            if (item.process_status === 'failed') {
+                auditHtml = '<span class="status-failed">检测失败</span>';
+            } else if (item.audit_result === 'pass') {
+                auditHtml = '<span class="status-pass">✅ 通过</span>';
+            } else {
+                auditHtml = '<span class="status-reject">❌ 不通过</span>';
+            }
+
+            // 4. 数据提取
+            const data = item.data || {};
+            const total = data.total || 0;
+            
+            // 5. 详情 & 失败原因
+            let failReason = '';
+            let detail = item.detail || '';
+            let detailClass = "text-muted small";
+            
+            if (item.process_status === 'failed') {
+                failReason = item.error || '未知错误';
+                detail = '-';
+            } else if (item.audit_result === 'pass') {
+                // 强制显示标准通过文案
+                detail = '图层分层合理、文字均可编辑';
+            } else {
+                // 不通过的情况
+                detailClass = "text-danger small"; // 红色字体
+                // 如果 detail 中包含 "疑似文字"，说明是 OCR 问题
+                if (detail && detail.includes('疑似文字') && !detail.includes('存在不可编辑文字')) {
+                    detail = '<div>存在不可编辑文字</div><div style="margin-top:4px;">' + detail + '</div>';
+                }
+                // 如果是基础分层问题，保持原样（如“无图层分层”）
+                if (!detail || detail === '-') detail = '不符合规范';
+            }
+            
+            const sysErrorDisplay = item.process_status === 'failed' ? failReason : '';
+
+            tr.innerHTML = `
+                <td><a href="https://www.gaoding.com/editor/design?id=${item.id}" target="_blank">${item.id}</a></td>
+                <td>${processStatusHtml}</td>
+                <td>${auditHtml}</td>
+                <td class="${detailClass}">${detail}</td>
+                <td><strong>${total}</strong></td>
+                <td class="text-danger small">${sysErrorDisplay}</td>
+            `;
+        }
+
+        // 使用原生 JS 导出 CSV
+        function exportCsv() {
+            if (currentResults.length === 0) return;
+
+            // 1. 定义表头
+            const headers = ['模板ID', '检测状态', '审核结果', '审核详情', '图层总数', '失败原因'];
+            
+            // 2. 转换数据
+            const rows = currentResults.map(item => {
+                let statusStr = '';
+                if (item.process_status === 'failed') statusStr = '检测失败';
+                else if (item.audit_result === 'pass') statusStr = '通过';
+                else statusStr = '不通过';
+                
+                const data = item.data || {};
+                
+                // --- 逻辑与 updateRow 保持一致 ---
+                let detail = item.detail || '';
+                let failReason = '';
+
+                if (item.process_status === 'failed') {
+                    failReason = item.error || '未知错误';
+                    detail = '-';
+                } else if (item.audit_result === 'pass') {
+                    // 强制显示标准通过文案
+                    detail = '图层分层合理、文字均可编辑';
+                } else {
+                    // 不通过的情况
+                    if (detail && detail.includes('疑似文字') && !detail.includes('存在不可编辑文字')) {
+                        // CSV 里用换行符代替 HTML 标签
+                        detail = '存在不可编辑文字\n' + detail;
+                    }
+                    if (!detail || detail === '-') detail = '不符合规范';
+                }
+                // --------------------------------
+
+                return [
+                    item.id,
+                    item.process_status === 'detected' ? '成功' : '失败',
+                    statusStr,
+                    `"${detail.replace(/"/g, '""')}"`,
+                    data.total || 0,
+                    `"${failReason.replace(/"/g, '""')}"`
+                ];
+            });
+            
+            // ... (后续导出逻辑不变)
+            let csvContent = '\uFEFF'; 
+            csvContent += headers.join(',') + '\n';
+            csvContent += rows.map(e => e.join(',')).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `稿定图层检测报告_${new Date().getTime()}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+    </script>
+</body>
+</html>

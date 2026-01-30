@@ -1,0 +1,239 @@
+#gd-lc-panel {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    background: rgba(30, 30, 30, 0.95);
+    color: #e0e0e0;
+    border-radius: 8px;
+    z-index: 2147483647; /* 确保在最上层 */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.1);
+    /* 移除 all，避免 top/left 变化时产生过渡导致拖拽滞后 */
+    transition: width 0.3s, min-width 0.3s, padding 0.3s, border-radius 0.3s;
+    overflow: hidden;
+    /* 默认状态：可能需要根据收起/展开调整宽高 */
+}
+
+/* 收起状态 (简略模式) */
+#gd-lc-panel.gd-lc-collapsed {
+    width: auto;
+    min-width: 100px;
+    padding: 0;
+    cursor: grab; /* 改为抓手，提示可拖拽 */
+    border-radius: 20px; /* 胶囊形状 */
+}
+
+#gd-lc-panel.gd-lc-collapsed:active {
+    cursor: grabbing;
+}
+
+/* 展开状态 (详细模式) */
+#gd-lc-panel.gd-lc-expanded {
+    width: 240px;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+#gd-lc-panel:hover {
+    background: rgba(30, 30, 30, 0.98);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+}
+
+/* --- 摘要栏样式 --- */
+.gd-lc-summary {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 8px;
+    cursor: grab; /* 提示可拖拽 */
+    user-select: none;
+}
+
+.gd-lc-summary:active {
+    cursor: grabbing;
+}
+
+/* 在展开模式下隐藏摘要栏 (可选，或者保留作为头部) */
+#gd-lc-panel.gd-lc-expanded .gd-lc-summary {
+    display: none;
+}
+
+#gd-lc-panel.gd-lc-collapsed .gd-lc-details-wrapper {
+    display: none;
+}
+
+.gd-lc-status-icon {
+    font-size: 16px;
+}
+
+.gd-lc-summary-text {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* --- 详情区样式 --- */
+.gd-lc-details-wrapper {
+    /* 展开时显示 */
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.gd-lc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #fff;
+    cursor: grab;
+}
+
+.gd-lc-header:active {
+    cursor: grabbing;
+}
+
+.gd-lc-pin {
+    cursor: pointer;
+    opacity: 0.8; /* 提高默认透明度 */
+    font-size: 16px; /* 加大图标 */
+    transition: all 0.2s;
+    filter: grayscale(100%);
+    user-select: none;
+    color: #fff; 
+    padding: 4px; /* 增加点击区域 */
+}
+
+.gd-lc-pin:hover {
+    opacity: 1;
+    transform: scale(1.1);
+    color: #ff4d4f; /* 悬停变为红色 */
+    filter: grayscale(0%);
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+.gd-lc-pin.active {
+    opacity: 1;
+    filter: grayscale(0%);
+    color: #ff4d4f; /* 激活时保持红色 */
+    text-shadow: 0 0 8px rgba(255, 77, 79, 0.6);
+    transform: rotate(0deg); 
+}
+
+.gd-lc-item {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.gd-lc-detail {
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+/* 滚动条样式 */
+.gd-lc-detail::-webkit-scrollbar,
+.gd-lc-list::-webkit-scrollbar {
+    width: 4px;
+}
+.gd-lc-detail::-webkit-scrollbar-thumb,
+.gd-lc-list::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
+.gd-lc-tip {
+    margin-top: 8px;
+    color: #888;
+    font-style: italic;
+    font-size: 11px;
+    text-align: center;
+}
+
+/* 审核样式 */
+.gd-lc-audit-title {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.gd-lc-audit {
+    min-height: 40px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.gd-lc-audit-waiting {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    font-size: 11px;
+}
+
+.gd-lc-audit-result {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.gd-lc-audit-result.success .gd-lc-audit-icon {
+    color: #52c41a;
+}
+.gd-lc-audit-result.success .gd-lc-audit-text {
+    color: #52c41a;
+    font-weight: bold;
+}
+
+.gd-lc-audit-result.error .gd-lc-audit-icon {
+    color: #ff4d4f;
+}
+.gd-lc-audit-result.error .gd-lc-audit-text {
+    color: #ff4d4f;
+    font-weight: bold;
+}
+
+.gd-lc-audit-icon {
+    font-size: 16px;
+    margin-right: 8px;
+}
+
+.gd-lc-audit-list {
+    margin: 0;
+    padding: 0 0 0 16px;
+    color: #ccc;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.gd-lc-audit-list li {
+    margin-bottom: 4px;
+}
+
+.gd-lc-btn {
+    padding: 6px 12px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 12px;
+    color: #333; /* 确保文字颜色可见 */
+}
+
+.gd-lc-btn-primary {
+    background: #1890ff;
+    border-color: #1890ff;
+    color: #fff;
+    font-weight: bold;
+}
